@@ -11,54 +11,50 @@ args = parser.parse_args()
 with open(args.file, "r") as file:
     lines = file.read().split('\n')
 
+# Parse as np array
 NB_ROWS, NB_COLS = len(lines), len(lines[0])
 TREE_HEIGHTS = np.zeros((NB_ROWS, NB_COLS))
 for i in range(NB_ROWS):
     for j in range(NB_COLS):
         TREE_HEIGHTS[i, j] = lines[i][j]
 
-# Count all exterior trees
+# PART 1
+# Count all edge trees as visible
 visible_trees = 2 * NB_COLS + (2*NB_ROWS) - 4
 
+# Count all visible interior trees
 for i in range(1, NB_ROWS - 1):
     for j in range(1, NB_COLS - 1):
-        smaller_tree_than_current = (TREE_HEIGHTS - TREE_HEIGHTS[i, j]) < 0
-        smaller_before_row, smaller_after_row = smaller_tree_than_current[i, 0 : j], smaller_tree_than_current[i, j + 1 : NB_COLS]
-        smaller_before_col, smaller_after_col = smaller_tree_than_current[0 : i, j], smaller_tree_than_current[i + 1 : NB_ROWS, j]
+        smaller_trees_than_current = (TREE_HEIGHTS - TREE_HEIGHTS[i, j]) < 0
+        visible = False
+        visible = visible or smaller_trees_than_current[i, 0 : j].all()
+        visible = visible or smaller_trees_than_current[i, j + 1 : NB_COLS].all()
+        visible = visible or smaller_trees_than_current[0 : i, j].all()
+        visible = visible or smaller_trees_than_current[i + 1 : NB_ROWS, j].all()
 
-        if smaller_before_row.all() or smaller_after_row.all() or smaller_before_col.all() or smaller_after_col.all():
-            visible_trees += 1
+        visible_trees += int(visible)
 
 print("Part 1: ", visible_trees)
 
-L = []
+# Part 2
+higher_scenic_score = 0
 for i in range(1, NB_ROWS - 1):
     for j in range(1, NB_COLS - 1):
-        e, ee, eee, eeee = 0, 0, 0, 0
-        x, xx, xxx, xxxx = True, True, True, True
-        trees_higher_than_current_tree = TREE_HEIGHTS - TREE_HEIGHTS[i,j]
-        trees_before_c = np.flip(trees_higher_than_current_tree[i,0:j])
-        trees_after_c = trees_higher_than_current_tree[i,j+1:NB_COLS]
-        trees_before_r = np.flip(trees_higher_than_current_tree[0:i,j])
-        trees_after_r = trees_higher_than_current_tree[i+1:NB_ROWS,j]
-        K = max(len(trees_before_c), len(trees_after_c), len(trees_before_r), len(trees_after_r))
-        for k in range(K):
-            if k < len(trees_before_c) and x:
-                e += 1
-                if trees_before_c[k] >= 0:
-                    x = False
-            if k < len(trees_after_c) and xx:
-                ee += 1
-                if trees_after_c[k] >= 0:
-                    xx = False
-            if k < len(trees_before_r) and xxx:
-                eee += 1
-                if trees_before_r[k] >= 0:
-                    xxx = False
-            if k < len(trees_after_r) and xxxx:
-                eeee += 1
-                if trees_after_r[k] >= 0:
-                    xxxx = False
-        L.append(e*ee*eee*eeee)
-print(max(L))
-                
+        scenic_score = 1
+        higher_trees_than_current = (TREE_HEIGHTS - TREE_HEIGHTS[i, j]) >= 0
+        higher_before_row = np.flip(higher_trees_than_current[i, 0 : j])
+        higher_after_row = higher_trees_than_current[i, j + 1 : NB_COLS]
+        higher_before_col = np.flip(higher_trees_than_current[0 : i, j])
+        higher_after_col = higher_trees_than_current[i + 1 : NB_ROWS, j]
+
+        for height_list in [higher_before_row, higher_after_row, higher_before_col, higher_after_col]:
+            idx_of_first_higher_tree = np.argwhere(height_list)
+            if idx_of_first_higher_tree.size > 0:
+                idx_of_first_higher_tree = idx_of_first_higher_tree[0][0]
+            else:
+                idx_of_first_higher_tree = len(height_list) - 1
+            distance_to_higher_tree = idx_of_first_higher_tree + 1
+            scenic_score *= distance_to_higher_tree
+        higher_scenic_score = max(higher_scenic_score, scenic_score)
+
+print("Part 2: ", higher_scenic_score)

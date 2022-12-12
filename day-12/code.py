@@ -28,18 +28,27 @@ def find_next(distances, not_visited):
         current_min_distance = np.min(only_not_visited_distances)
         return get_position_elem(not_visited & (distances == current_min_distance))
 
-def update_neighbors(row, col, distances):
-    elem = ELEVATIONS[row, col]
-    distance_to_elem = distances[row, col]
-    indices = [[row - 1, col], [row + 1, col], [row, col - 1], [row, col + 1]]
-    for i, j in indices:
-        if i >= 0 and j >= 0 and i < ELEVATIONS.shape[0] - 1 and j < ELEVATIONS.shape[1] - 1:
-            next_elem = REAL_END if ELEVATIONS[i, j] == END else ELEVATIONS[i, j]
-            distance_to_next = distances[i, j]
-            if ord(next_elem) <= 1 + ord(elem):
-                distances[i, j] = min(distance_to_elem + 1, distance_to_next)
+def distance_from_current_to_neighbour(elevation_gap, distance_to_current, revert):
+    if revert:
+        return distance_to_current + 1 if elevation_gap >= -1 else float("inf")
+    return distance_to_current + 1 if elevation_gap <= 1 else float("inf")
 
-def path_between_S_E(row, col):
+def update_neighbours(current_row, current_col, distances, revert):
+    indices = [
+        [current_row - 1, current_col], [current_row + 1, current_col],
+        [current_row, current_col - 1], [current_row, current_col + 1]
+    ]
+    for neighbour_row, neighbour_col in indices:
+        if 0 <= neighbour_row < ELEVATIONS.shape[0] - 1 and 0 <= neighbour_col < ELEVATIONS.shape[1] - 1:
+            gap = ELEVATIONS[neighbour_row, neighbour_col] - ELEVATIONS[current_row, current_col]
+            new_distance = distance_from_current_to_neighbour(
+                gap, distances[current_row, current_col], revert
+            )
+            distances[neighbour_row, neighbour_col] = min(
+                new_distance, distances[neighbour_row, neighbour_col]
+            )
+
+def hill_climbing(row, col, revert=False):
     not_visited = np.ones(ELEVATIONS.shape, dtype="bool")
     distances = np.ones(ELEVATIONS.shape) * float("inf")
 
@@ -49,25 +58,29 @@ def path_between_S_E(row, col):
     while next:
         row, col = next
         not_visited[row, col] = False
-        update_neighbors(row, col, distances)
+        update_neighbours(row, col, distances, revert)
         next = find_next(distances, not_visited)
-    return distances[ELEVATIONS == END][0]
+    return distances
 
 # PART 1
-
 ELEVATIONS = np.array([list(l) for l in lines])
-s_row, s_col = get_position_elem(ELEVATIONS == START)
+start_row, start_col = get_position_elem(ELEVATIONS == START)
 ELEVATIONS[ELEVATIONS == START] = REAL_START
 
-part_1 = path_between_S_E(s_row, s_col)
-print("PART 1:", int(part_1))
+end_mask = ELEVATIONS == END
+ELEVATIONS[end_mask] = REAL_END
+ELEVATIONS = ELEVATIONS.view("int32")
+
+part_1 = hill_climbing(start_row, start_col)
+print("PART 1:", int(part_1[end_mask]))
 
 # PART 2
+ELEVATIONS = np.array([list(l) for l in lines])
+start_row, start_col = get_position_elem(ELEVATIONS == END)
+ELEVATIONS[ELEVATIONS == END] = REAL_END
 
-indices = zip(*np.where(ELEVATIONS == REAL_START))
-min_distance = part_1
-for coord in indices:
-    row, col = coord
-    if s_row != row or s_col != col:
-        min_distance = min(min_distance, path_between_S_E(row, col))
-print("PART 2:", int(min_distance))
+ELEVATIONS[ELEVATIONS == START] = REAL_START
+ELEVATIONS = ELEVATIONS.view("int32")
+
+part_1 = hill_climbing(start_row, start_col, revert=True)
+print("PART 2:", int(min(part_1[ELEVATIONS == ord(REAL_START)])))
